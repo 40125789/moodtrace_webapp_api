@@ -6,8 +6,8 @@ const transporter = nodemailer.createTransport({
     host: 'smtp.ethereal.email',
     port: 587,
     auth: {
-        user: 'dell.reilly@ethereal.email',
-        pass: 'XDEXxbeTc65ka74cKC'
+        user: 'raymond.raynor@ethereal.email',
+        pass: 'JhyfrJnW77Z2kR1Yxz'
     }
 });
 
@@ -40,7 +40,6 @@ exports.postForgetPassword = (req, res, next) => {
             const token = generateToken();
 
             // Store the token in the database or cache for later verification
-            
             const updateTokenQuery = 'UPDATE user SET reset_token = ? WHERE email_address = ?';
             conn.query(updateTokenQuery, [token, email], (updateErr, updateResult) => {
                 if (updateErr) {
@@ -50,17 +49,20 @@ exports.postForgetPassword = (req, res, next) => {
                 }
 
                 // Construct the password reset link
-                const resetLink = `http://localhost:3002/forgetpassword?token=${token}`;
+                const resetLink = `http://localhost:3000/resetpassword?token=${token}`;
 
-                // Log the reset link (for demonstration purposes)
-                console.log('Password reset link:', resetLink);
+                // Construct the HTML content of the email
+                const htmlContent = `
+                    <p>Click the following link to reset your password:</p>
+                    <a href="${resetLink}">Reset Password</a>
+                `;
 
                 // Here you would typically send the reset link to the user's email
                 const mailOptions = {
                     from: 'MoodTrace@gmail.com',
                     to: email,
-                    subject: 'Password Reset',
-                    text: `Click the following link to reset your password: ${resetLink}`
+                    subject: 'Mood Trace-Password Reset',
+                    html: htmlContent // Use HTML content for the email body
                 };
                 // You can use a library like Nodemailer to send emails in Node.js
                
@@ -71,9 +73,6 @@ exports.postForgetPassword = (req, res, next) => {
                         return res.status(500).json({ message });
                     }
 
-                    // Log the reset link (for demonstration purposes)
-                    console.log('Password reset link:', resetLink);
-                    
                     // Set the variable to indicate that the reset link has been sent
                     sentResetLink = true;
 
@@ -90,6 +89,7 @@ exports.postForgetPassword = (req, res, next) => {
         }
     });
 };
+
 
 
 

@@ -9,6 +9,62 @@ exports.getAPIkey = (req, res) => {
 };
 
 
+exports.postNewPassword = (req, res) => {
+    const { token, newPassword, confirmPassword } = req.body;
+
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+        return res.status(400).json({ message: 'Passwords do not match', type: 'error' });
+    }
+
+    // Check if password meets minimum length requirement
+    if (newPassword.length < 8) {
+        return res.status(400).json({ message: 'Password must be at least 8 characters long.', type: 'error' });
+    }
+
+    // Check if password contains at least one special character
+    const specialCharacterRegex = /[!@#$%^&*(),.?":{}|<>]/;
+    if (!specialCharacterRegex.test(newPassword)) {
+        return res.status(400).json({ message: 'Password must contain at least one special character.', type: 'error' });
+    }
+
+
+    // Hash the new password
+    bcrypt.hash(newPassword, 10, (hashErr, hashedPassword) => {
+        if (hashErr) {
+            console.error('Error hashing password:', hashErr);
+            return res.status(500).json({ message: 'Internal Server Error', type: 'error' });
+        }
+
+        // Check if token exists in the database
+        const selectSQL = 'SELECT * FROM user WHERE reset_token = ?';
+        conn.query(selectSQL, [token], (err, rows) => {
+            if (err) {
+                console.error('Error querying database:', err);
+                return res.status(500).json({ message: 'Internal server error.', type: 'error' });
+            }
+
+            if (rows.length === 0) {
+                return res.status(400).json({ message: 'Invalid or expired reset token', type: 'error' });
+            }
+
+            // Update user's password and clear reset token
+            const updateSQL = 'UPDATE user SET password = ?, reset_token = NULL WHERE reset_token = ?';
+            conn.query(updateSQL, [hashedPassword, token], (updateErr, updateResult) => {
+                if (updateErr) {
+                    console.error('Error updating password:', updateErr);
+                    return res.status(500).json({ message: 'Internal server error.', type: 'error' });
+                }
+
+                // Respond with success message
+                res.json({ message: 'Password reset successfully.', type: 'success' });
+            });
+        });
+    });
+};
+
+
+
 
 exports.getRecord = (req, res) => {
     const { userid } = req.params;

@@ -4,10 +4,6 @@ const router = express.Router();
 const validateApiKey = require('./../middleware/APIauth'); 
 
 
-
-
-
-
 router.get('/selectedMood/:moodId/:trigger?',validateApiKey, controller.getSelectedMood);
 router.delete('/deleteSnapshot/:moodId', controller.deleteMood);
 router.put('/updateTriggers/:moodId', controller.updateMood);

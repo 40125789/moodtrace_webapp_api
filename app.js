@@ -6,9 +6,6 @@ const userrouter = require('./routes/userroutes');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-
-
-
 const app = express();
 
 const apiKey = process.env.API_KEY 
