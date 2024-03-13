@@ -9,7 +9,7 @@ const validateApiKey = (req, res, next) => {
     }
 
     // Check if API key is valid
-    if (apiKey !== process.env.API_KEY) { // Replace process.env.API_KEY with your actual API key
+    if (apiKey !== process.env.API_KEY) { 
         return res.status(403).json({ error: 'Invalid API key' });
     }
 

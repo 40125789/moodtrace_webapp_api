@@ -3,13 +3,14 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const transporter = nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    auth: {
-        user: 'raymond.raynor@ethereal.email',
-        pass: 'JhyfrJnW77Z2kR1Yxz'
-    }
-});
+
+        host: 'smtp.ethereal.email',
+        port: 587,
+        auth: {
+            user: 'kathleen79@ethereal.email',
+            pass: 'yymQJgcsxuaTTtu49G'
+        }
+    });
 
 
 // Generate a random token
@@ -200,9 +201,9 @@ function fetchContextualTriggers(callback) {
  };
  
 
-// Assuming you have a route similar to this in your Express application
+
 exports.getSelectedMood = (req, res) => {
-    const moodId = req.params.moodId || ''; // Corrected from 'snapshotId' to 'moodId'
+    const moodId = req.params.moodId || ''; 
     const trigger = req.params.trigger || '';
 
     const selectSQL = `
@@ -256,9 +257,7 @@ exports.getSelectedMood = (req, res) => {
     });
 };
 
-
- 
- exports.updateMood = (req, res) => {
+exports.updateMood = (req, res) => {
     try {
         const { updatedContextualTriggers } = req.body;
         const moodId = req.params.moodId;
@@ -269,83 +268,97 @@ exports.getSelectedMood = (req, res) => {
             return res.status(400).json({ error: 'Mood ID is undefined' });
         }
 
-        // Convert updatedContextualTriggers to an array if it's a single value
-        const triggersArray = Array.isArray(updatedContextualTriggers)
-            ? updatedContextualTriggers
-            : [updatedContextualTriggers];
+        // Check if the mood ID exists in the snapshot table
+        const checkMoodSQL = 'SELECT * FROM snapshot WHERE snapshot_id = ? LIMIT 1';
 
-        // Update triggers associated with the given snapshotID
-        const updateTriggerSQL = `
-            INSERT IGNORE INTO snapshot_trigger (snapshot_id, trigger_id)
-            SELECT ?, trigger_id
-            FROM contextual_trigger
-            WHERE trigger_name IN (?) AND trigger_id NOT IN (
-                SELECT trigger_id
-                FROM snapshot_trigger
-                WHERE snapshot_id = ?
-            );
-        `;
-
-        // Delete triggers if the checkbox is deselected by the user
-        const deleteTriggersSQL = `
-            DELETE FROM snapshot_trigger
-            WHERE snapshot_id = ? AND trigger_id NOT IN (
-                SELECT trigger_id FROM contextual_trigger WHERE trigger_name IN (?)
-            );
-        `;
-
-        // Begin transaction
-        conn.beginTransaction((beginTransactionErr) => {
-            if (beginTransactionErr) {
-                console.error('Error beginning transaction:', beginTransactionErr);
+        conn.query(checkMoodSQL, [moodId], (checkErr, checkResults) => {
+            if (checkErr) {
+                console.error('Error checking mood:', checkErr);
                 return res.status(500).json({ error: 'Internal Server Error' });
             }
 
-            // Execute delete statement for triggers that are not in updatedContextualTriggers
-            conn.query(deleteTriggersSQL, [moodId, triggersArray], (deleteErr) => {
-                if (deleteErr) {
-                    console.error('Error deleting triggers:', deleteErr);
-                    conn.rollback(() => {
-                        res.status(500).json({ error: 'Internal Server Error' });
-                    });
-                    return;
+            if (checkResults.length === 0) {
+                return res.status(404).json({ error: `Snapshot with ID ${moodId} does not exist` });
+            }
+
+            // Convert updatedContextualTriggers to an array if it's a single value
+            const triggersArray = Array.isArray(updatedContextualTriggers)
+                ? updatedContextualTriggers
+                : [updatedContextualTriggers];
+
+            // Update triggers associated with the given mood ID
+            const updateTriggerSQL = `
+                INSERT IGNORE INTO snapshot_trigger (snapshot_id, trigger_id)
+                SELECT ?, trigger_id
+                FROM contextual_trigger
+                WHERE trigger_name IN (?) AND trigger_id NOT IN (
+                    SELECT trigger_id
+                    FROM snapshot_trigger
+                    WHERE snapshot_id = ?
+                );
+            `;
+
+            // Delete triggers if the checkbox is deselected by the user
+            const deleteTriggersSQL = `
+                DELETE FROM snapshot_trigger
+                WHERE snapshot_id = ? AND trigger_id NOT IN (
+                    SELECT trigger_id FROM contextual_trigger WHERE trigger_name IN (?)
+                );
+            `;
+
+            // Begin transaction
+            conn.beginTransaction((beginTransactionErr) => {
+                if (beginTransactionErr) {
+                    console.error('Error beginning transaction:', beginTransactionErr);
+                    return res.status(500).json({ error: 'Internal Server Error' });
                 }
 
-                // Execute each update statement for each trigger in parallel using Promise.all
-                const updatePromises = triggersArray.map((newTrigger) => {
-                    return new Promise((resolve, reject) => {
-                        // Execute the update statement
-                        conn.query(updateTriggerSQL, [moodId, newTrigger, moodId], (updateErr, updateResult) => {
-                            if (updateErr) {
-                                // Rollback the transaction if there's an error
-                                conn.rollback(() => {
-                                    console.error('Error updating snapshot_trigger:', updateErr);
-                                    reject(updateErr);
-                                });
-                            } else {
-                                resolve(updateResult);
-                            }
+                // Execute delete statement for triggers that are not in updatedContextualTriggers
+                conn.query(deleteTriggersSQL, [moodId, triggersArray], (deleteErr) => {
+                    if (deleteErr) {
+                        console.error('Error deleting triggers:', deleteErr);
+                        conn.rollback(() => {
+                            res.status(500).json({ error: 'Internal Server Error' });
                         });
-                    });
-                });
+                        return;
+                    }
 
-                // Wait for all updates to complete
-                Promise.all(updatePromises)
-                    .then(() => {
-                        // Commit the transaction if all updates are successful
-                        conn.commit((commitErr) => {
-                            if (commitErr) {
-                                console.error('Error committing transaction:', commitErr);
-                                res.status(500).json({ error: 'Internal Server Error' });
-                            } else {
-                                res.status(200).json({ message: `Mood with ID ${moodId} updated successfully` });
-                            }
+                    // Execute each update statement for each trigger in parallel using Promise.all
+                    const updatePromises = triggersArray.map((newTrigger) => {
+                        return new Promise((resolve, reject) => {
+                            // Execute the update statement
+                            conn.query(updateTriggerSQL, [moodId, newTrigger, moodId], (updateErr, updateResult) => {
+                                if (updateErr) {
+                                    // Rollback the transaction if there's an error
+                                    conn.rollback(() => {
+                                        console.error('Error updating snapshot_trigger:', updateErr);
+                                        reject(updateErr);
+                                    });
+                                } else {
+                                    resolve(updateResult);
+                                }
+                            });
                         });
-                    })
-                    .catch((error) => {
-                        console.error('Error updating triggers:', error);
-                        res.status(500).json({ error: 'Internal Server Error' });
                     });
+
+                    // Wait for all updates to complete
+                    Promise.all(updatePromises)
+                        .then(() => {
+                            // Commit the transaction if all updates are successful
+                            conn.commit((commitErr) => {
+                                if (commitErr) {
+                                    console.error('Error committing transaction:', commitErr);
+                                    res.status(500).json({ error: 'Internal Server Error' });
+                                } else {
+                                    res.status(200).json({ message: `Mood with ID ${moodId} updated successfully` });
+                                }
+                            });
+                        })
+                        .catch((error) => {
+                            console.error('Error updating triggers:', error);
+                            res.status(500).json({ error: 'Internal Server Error' });
+                        });
+                });
             });
         });
     } catch (error) {
@@ -353,6 +366,7 @@ exports.getSelectedMood = (req, res) => {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
+
 
 
 
